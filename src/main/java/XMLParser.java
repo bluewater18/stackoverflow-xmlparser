@@ -3,12 +3,8 @@ import com.ximpleware.EOFException;
 import org.jdom.JDOMException;
 import org.jdom.input.SAXBuilder;
 
-import javax.xml.bind.JAXBContext;
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
-import java.lang.reflect.Array;
-import java.net.URL;
+import java.net.Inet4Address;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -16,13 +12,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class XMLParser {
     String jarString;
     private final static Charset ENCODING = StandardCharsets.UTF_8;
+    Map<String, Integer> tags;
     public XMLParser() {
         String url = null;
         try {
@@ -32,6 +27,7 @@ public class XMLParser {
         }
         File jarDir = new File(url);
         jarString = jarDir.getParentFile().toString();
+        tags = new HashMap<>();
 
     }
 
@@ -78,31 +74,72 @@ public class XMLParser {
 
     public void customParse() {
         BufferedReader reader;
+        BufferedWriter writer;
         Path file = Paths.get(jarString+ System.getProperty("file.separator") + "out.txt");
+        Path outfile = Paths.get(jarString+ System.getProperty("file.separator") + "architecture_posts.txt");
+
         List<Post> posts = new ArrayList<>();
         try {
             reader = new BufferedReader(new FileReader(String.valueOf(file)));
+            writer = Files.newBufferedWriter(outfile, ENCODING, StandardOpenOption.WRITE);
             String line = reader.readLine();
             int i = 0;
             int postCount = 0;
-            while(line != null && i < 1000) {
+            while(line != null && i < Integer.MAX_VALUE) {
                 i++;
                 Post p =parseLine(line);
                 if(p != null) {
-                    posts.add(p);
-                    postCount++;
+                    if (p.getStringTags().contains("<architecture>")) {
+                        writer.write(line);
+                        writer.newLine();
+                        posts.add(p);
+                        postCount++;
+                    }
                 }
 
                 line = reader.readLine();
 
             }
-            System.out.println(postCount + " posts found from " + i + " entries");
-            for(Post p : posts)
-                System.out.println(p.toString());
+            reader.close();
+            writer.flush();
+            writer.close();
+//            System.out.println(postCount + " posts found with the tag architecture " + i + " entries");
+//            for(Post p : posts)
+//                System.out.println(p.toString());
+            countTags(posts);
+            printTags();
+            System.out.println(postCount + " posts found with the tag architecture " + i + " entries");
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
+        }
+
+    }
+
+    private void printTags() {
+        List<Map.Entry<String, Integer>> list = new LinkedList<Map.Entry<String, Integer>>(tags.entrySet());
+
+        Collections.sort(list, new Comparator<Map.Entry<String, Integer>>() {
+            @Override
+            public int compare(Map.Entry<String, Integer> stringIntegerEntry, Map.Entry<String, Integer> t1) {
+                return(stringIntegerEntry.getValue()).compareTo(t1.getValue());
+            }
+        });
+        for(Map.Entry<String, Integer> entry : list){
+            System.out.println("tag " + entry.getKey() + " occurred " + entry.getValue() + " times");
+        }
+    }
+
+    private void countTags(List<Post> posts) {
+        for(Post p: posts){
+            for(String t: p.getTags()){
+                if(tags.containsKey(t)){
+                    tags.put(t, tags.get(t)+1);
+                } else {
+                    tags.put(t, 1);
+                }
+            }
         }
 
     }
@@ -150,15 +187,15 @@ public class XMLParser {
                 Post p = new Post(Integer.parseInt(doc.getRootElement().getAttributeValue("Id")),
                         Integer.parseInt(doc.getRootElement().getAttributeValue("PostTypeId")),
                         doc.getRootElement().getAttributeValue("CreationDate"),
-                        Integer.parseInt(doc.getRootElement().getAttributeValue("Score")),
-                        Integer.parseInt(doc.getRootElement().getAttributeValue("ViewCount")),
+                        doc.getRootElement().getAttributeValue("Score"),
+                        doc.getRootElement().getAttributeValue("ViewCount"),
                         doc.getRootElement().getAttributeValue("Body"),
                         doc.getRootElement().getAttributeValue("LastEditDate"),
                         doc.getRootElement().getAttributeValue("LastActivityDate"),
                         doc.getRootElement().getAttributeValue("Title"),
                         doc.getRootElement().getAttributeValue("Tags"),
-                        Integer.parseInt(doc.getRootElement().getAttributeValue("CommentCount")),
-                        Integer.parseInt(doc.getRootElement().getAttributeValue("FavoriteCount")));
+                        doc.getRootElement().getAttributeValue("CommentCount"),
+                        doc.getRootElement().getAttributeValue("FavoriteCount"));
                 return p;
             }
             return null;
