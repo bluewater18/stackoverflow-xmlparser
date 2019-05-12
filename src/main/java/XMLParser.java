@@ -1,5 +1,6 @@
 import com.ximpleware.*;
 import com.ximpleware.EOFException;
+import javafx.geometry.Pos;
 import org.jdom.JDOMException;
 import org.jdom.input.SAXBuilder;
 
@@ -18,6 +19,9 @@ public class XMLParser {
     String jarString;
     private final static Charset ENCODING = StandardCharsets.UTF_8;
     Map<String, Integer> tags;
+    Map<String, Integer> titleWords;
+    ArrayList<String> commonWords;
+
     public XMLParser() {
         String url = null;
         try {
@@ -28,7 +32,8 @@ public class XMLParser {
         File jarDir = new File(url);
         jarString = jarDir.getParentFile().toString();
         tags = new HashMap<>();
-
+        titleWords = new HashMap<>();
+        commonWords = Utils.commonWords();
     }
 
     public void readFile() {
@@ -74,24 +79,24 @@ public class XMLParser {
 
     public void customParse() {
         BufferedReader reader;
-        BufferedWriter writer;
-        Path file = Paths.get(jarString+ System.getProperty("file.separator") + "out.txt");
-        Path outfile = Paths.get(jarString+ System.getProperty("file.separator") + "architecture_posts.txt");
+        //BufferedWriter writer;
+        //Path file = Paths.get(jarString+ System.getProperty("file.separator") + "out.txt");
+        Path file = Paths.get(jarString+ System.getProperty("file.separator") + "architecture_posts.txt");
 
         List<Post> posts = new ArrayList<>();
         try {
             reader = new BufferedReader(new FileReader(String.valueOf(file)));
-            writer = Files.newBufferedWriter(outfile, ENCODING, StandardOpenOption.WRITE);
+            //writer = Files.newBufferedWriter(outfile, ENCODING, StandardOpenOption.WRITE);
             String line = reader.readLine();
             int i = 0;
             int postCount = 0;
             while(line != null && i < Integer.MAX_VALUE) {
                 i++;
-                Post p =parseLine(line);
+                Post p = parseLine(line);
                 if(p != null) {
                     if (p.getStringTags().contains("<architecture>")) {
-                        writer.write(line);
-                        writer.newLine();
+                        //writer.write(line);
+                        //writer.newLine();
                         posts.add(p);
                         postCount++;
                     }
@@ -101,13 +106,13 @@ public class XMLParser {
 
             }
             reader.close();
-            writer.flush();
-            writer.close();
-//            System.out.println(postCount + " posts found with the tag architecture " + i + " entries");
-//            for(Post p : posts)
-//                System.out.println(p.toString());
-            countTags(posts);
-            printTags();
+            //writer.flush();
+            //writer.close();
+
+            //countTags(posts);
+            //printTags();
+            countTitleWords(posts);
+            printTitle();
             System.out.println(postCount + " posts found with the tag architecture " + i + " entries");
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -115,6 +120,36 @@ public class XMLParser {
             e.printStackTrace();
         }
 
+    }
+
+    private void printTitle(){
+        List<Map.Entry<String, Integer>> list = new LinkedList<>(titleWords.entrySet());
+
+        Collections.sort(list, new Comparator<Map.Entry<String, Integer>>() {
+            @Override
+            public int compare(Map.Entry<String, Integer> stringIntegerEntry, Map.Entry<String, Integer> t1) {
+                return(stringIntegerEntry.getValue()).compareTo(t1.getValue());
+            }
+        });
+        for(Map.Entry<String, Integer> entry : list){
+            System.out.println("Word " + entry.getKey() + " occurred " + entry.getValue() + " times in title");
+        }
+
+    }
+
+    private void countTitleWords(List<Post> posts){
+        for(Post p : posts){
+            if(p.getTitle() != null)
+                for(String t : p.getTitle().split(" ")){
+                    t = t.toLowerCase();
+                    if(commonWords.contains(t))
+                        continue;
+                    if(titleWords.containsKey(t))
+                        titleWords.put(t, titleWords.get(t)+1);
+                    else
+                        titleWords.put(t,1);
+                }
+        }
     }
 
     private void printTags() {
